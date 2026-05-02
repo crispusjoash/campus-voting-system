@@ -60,6 +60,9 @@ app.use("/api/tally", tallyRoutes);
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({ status: "ok", ts: new Date() }));
 
+// ─── 404 Handler ─────────────────────────────────────────────────────────────
+app.use((_req, res) => res.status(404).json({ message: "Route not found." }));
+
 // ─── Socket.io events ────────────────────────────────────────────────────────
 io.on("connection", (socket) => {
   console.log("Live-tally client connected:", socket.id);

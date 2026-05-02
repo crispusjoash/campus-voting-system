@@ -296,15 +296,16 @@ router.post("/confirm-voters", authenticateAdmin, async (req, res) => {
       const defaultPassword  = voter.regNumber.toLowerCase();
       const hashedPassword   = await bcrypt.hash(defaultPassword, 10);
 
-      await pool.query(
+      const result = await pool.query(
         `INSERT INTO Voters
            (registration_number, email_address, full_name, gender, residence_zone, school_id, password, is_approved)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-         ON CONFLICT DO NOTHING`,
+         ON CONFLICT DO NOTHING RETURNING id`,
         [voter.regNumber, voter.email, voter.fullName, voter.gender,
          voter.residence, voter.schoolId, hashedPassword, true]
       );
-      successfulInserts++;
+      // Only count rows that were actually inserted (not silently skipped duplicates)
+      if (result.rowCount > 0) successfulInserts++;
     }
 
     await pool.query(
@@ -667,10 +668,10 @@ router.put("/candidates/:id/reject", authenticateAdmin, async (req, res) => {
 router.get("/audit-logs", authenticateAdmin, async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT l.*, a.email as admin_email 
+      SELECT l.*, l.timestamp as created_at, a.email as admin_email 
       FROM Audit_Logs l 
       LEFT JOIN Admins a ON l.admin_id = a.id 
-      ORDER BY l.created_at DESC 
+      ORDER BY l.timestamp DESC 
       LIMIT 100
     `);
     res.json(result.rows);

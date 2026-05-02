@@ -1,34 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
 import API_URL from "../config";
+import { isValidReg, formatReg } from "../utils/mmust";
 
 const ZONES = ["Non Residence","Hall 1","Hall 2","Hall 3","Hall 4 Male","Hall 4 Female"];
 
-// SCI prefixes — auto-detected from reg number
-const SCI_PREFIXES = ["BIT","COM","ETS","ITE","SCF","SIK","SIT"];
-
-// Standard format: SIT/B/01-00001/2023
-// Parts: [3-letter code] / [level] / [2-digit campus]-[5-digit serial] / [4-digit year]
-const REG_REGEX = /^[A-Z]{3}\/[BDCMP]\/\d{2}-\d{5}\/\d{4}$/;
-const isValidReg = (r) => REG_REGEX.test(r.toUpperCase());
-
-// Auto-format as user types into: XXX/X/XX-XXXXX/XXXX
-const formatReg = (raw) => {
-  // Keep only letters and digits, uppercase
-  const c = raw.replace(/[^A-Z0-9]/gi, "").toUpperCase();
-  // Segments: program(3), level(1), campus(2), serial(5), year(4)
-  const prog   = c.slice(0, 3);
-  const level  = c.slice(3, 4);
-  const campus = c.slice(4, 6);
-  const serial = c.slice(6, 11);
-  const year   = c.slice(11, 15);
-
-  let out = prog;
-  if (level)  out += "/" + level;
-  if (campus) out += "/" + campus;
-  if (serial) out += "-" + serial;
-  if (year)   out += "/" + year;
-  return out;
-};
 
 export default function CandidateForm({ token, onSuccess, onError }) {
   const [reg, setReg]               = useState("");

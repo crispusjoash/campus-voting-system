@@ -156,9 +156,38 @@ router.post("/cast", authenticateVoter, async (req, res) => {
     // 2. Mark voter as having voted
     await client.query("UPDATE Voters SET has_voted = TRUE WHERE id = $1", [student_id]);
 
-    // 3. Increment votes anonymously
+    // 3. Validate selections and increment votes anonymously
     // If candidateIds is empty, it means the user abstained.
     if (candidateIds && candidateIds.length > 0) {
+      const positionsRes = await client.query(
+        `SELECT id FROM Positions 
+         WHERE target_group = 'ALL' 
+            OR (target_group = 'SCHOOL' AND target_value = $1)
+            OR (target_group = 'RESIDENTIAL' AND target_value = $2)`,
+        [req.voter.school_id, req.voter.residence_zone]
+      );
+      const validPositionIds = positionsRes.rows.map(p => p.id);
+
+      const cRes = await client.query(
+        "SELECT id, position_id FROM Candidates WHERE id = ANY($1) AND active = true AND is_approved = true",
+        [candidateIds]
+      );
+      
+      const candidateMap = new Map();
+      for (const c of cRes.rows) {
+        if (!validPositionIds.includes(c.position_id)) {
+           throw new Error("You are not eligible to vote for one or more selected candidates.");
+        }
+        if (candidateMap.has(c.position_id)) {
+           throw new Error("You cannot vote for multiple candidates in the same position.");
+        }
+        candidateMap.set(c.position_id, c.id);
+      }
+      
+      if (cRes.rows.length !== candidateIds.length) {
+         throw new Error("One or more candidate selections are invalid.");
+      }
+
       for (const cId of candidateIds) {
         await client.query(
           "INSERT INTO Votes (candidate_id, vote_count) VALUES ($1, 1) ON CONFLICT (candidate_id) DO UPDATE SET vote_count = Votes.vote_count + 1",
@@ -178,11 +207,15 @@ router.post("/cast", authenticateVoter, async (req, res) => {
   } catch (err) {
     await client.query("ROLLBACK");
     console.error(err);
-    // Determine status code based on error
-    if (err.message.includes("already cast") || err.message.includes("not currently active")) {
+    // Return 403 for all known business-logic errors, 500 for truly unexpected ones
+    const knownErrors = [
+      "already cast", "not currently active", "not eligible",
+      "multiple candidates", "selections are invalid", "not found", "Voter not found"
+    ];
+    if (knownErrors.some(s => err.message.includes(s))) {
       return res.status(403).json({ message: err.message });
     }
-    res.status(500).send("Server Error");
+    res.status(500).json({ message: "Server Error", error: err.message });
   } finally {
     client.release();
   }
@@ -238,7 +271,7 @@ router.put("/profile", authenticateVoter, async (req, res) => {
         isActive: isActive
       },
       jwtSecret,
-      { expiresIn: "15m" }
+      { expiresIn: "2h" }
     );
 
     res.json({ message: "Profile updated successfully.", token: newToken, voter: student });
@@ -277,7 +310,7 @@ router.post("/photo", authenticateVoter, voterPhotoUpload.single("photo"), async
         isActive: req.voter.isActive // preserve state
       },
       jwtSecret,
-      { expiresIn: "15m" }
+      { expiresIn: "2h" }
     );
 
     res.json({ message: "Photo uploaded successfully.", photo_url, token: newToken });

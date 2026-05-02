@@ -28,6 +28,7 @@ CREATE TABLE Voters (
     gender              VARCHAR(10)  CHECK (gender IN ('Male', 'Female')),
     residence_zone      VARCHAR(100) NOT NULL,
     school_id           VARCHAR(50)  NOT NULL,
+    profile_photo_url   VARCHAR(500),
     is_approved         BOOLEAN      DEFAULT FALSE,
     has_voted           BOOLEAN      DEFAULT FALSE,
     otp                 VARCHAR(10),

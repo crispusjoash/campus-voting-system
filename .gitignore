@@ -1,5 +1,10 @@
 node_modules/
+
+# Environment files — NEVER commit these; they contain secrets
 .env
+backend/.env
+frontend/.env
+
 dist/
 build/
 .DS_Store

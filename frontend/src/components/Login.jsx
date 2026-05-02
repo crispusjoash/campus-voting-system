@@ -31,6 +31,7 @@ const IconEye = ({ show }) => show ? (
 
 export default function Login() {
   const navigate = useNavigate();
+  const [loginMode, setLoginMode] = useState("voter"); // "voter" | "admin"
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp]           = useState("");
@@ -39,12 +40,19 @@ export default function Login() {
   const [loading, setLoading]   = useState(false);
   const [showPw, setShowPw]     = useState(false);
 
+  // Switch mode resets the form state
+  const switchMode = (mode) => {
+    setLoginMode(mode);
+    setEmail(""); setPassword(""); setOtp("");
+    setStep("LOGIN"); setError("");
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true); setError("");
 
-    const isAdmin = email.includes("admin");
-    const url = isAdmin
+    // Route to the correct API based on the explicit mode selected by the user
+    const url = loginMode === "admin"
       ? `${API_URL}/api/admin/login`
       : `${API_URL}/api/auth/login`;
 
@@ -56,8 +64,8 @@ export default function Login() {
       });
       const data = await res.json();
       if (res.ok) {
-        if (isAdmin) { localStorage.setItem("adminToken", data.token); navigate("/admin/dashboard"); }
-        else          { setStep("OTP"); }
+        if (loginMode === "admin") { localStorage.setItem("adminToken", data.token); navigate("/admin/dashboard"); }
+        else                       { setStep("OTP"); }
       } else { setError(data.message); }
     } catch { setError("Unable to connect to server."); }
     setLoading(false);
@@ -123,6 +131,24 @@ export default function Login() {
       {/* Right panel */}
       <div style={styles.rightPanel}>
         <div style={styles.formCard}>
+          {/* Mode toggle — Voter / Admin */}
+          <div style={styles.modeToggle}>
+            <button
+              type="button"
+              onClick={() => switchMode("voter")}
+              style={{ ...styles.modeBtn, ...(loginMode === "voter" ? styles.modeBtnActive : {}) }}
+            >
+              🗳️ Voter
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode("admin")}
+              style={{ ...styles.modeBtn, ...(loginMode === "admin" ? styles.modeBtnActive : {}) }}
+            >
+              🛡️ Admin
+            </button>
+          </div>
+
           {/* Header */}
           <div style={styles.formHeader}>
             <div style={styles.formIconWrap}>
@@ -130,17 +156,20 @@ export default function Login() {
             </div>
             <div>
               <h2 style={styles.formTitle}>
-                {step === "LOGIN" ? "Sign In" : "Verify Identity"}
+                {step === "LOGIN"
+                  ? (loginMode === "admin" ? "Admin Sign In" : "Student Sign In")
+                  : "Verify Identity"}
               </h2>
               <p style={styles.formSubtitle}>
                 {step === "LOGIN"
-                  ? "Enter your credentials to access the ballot"
+                  ? (loginMode === "admin" ? "Enter admin credentials" : "Enter your credentials to access the ballot")
                   : `OTP sent to ${email}`}
               </p>
             </div>
           </div>
 
-          {/* Progress steps */}
+          {/* Progress steps — only show for voter OTP flow */}
+          {loginMode === "voter" && (
           <div style={styles.stepsRow}>
             {["Credentials", "OTP Verification", "Ballot"].map((s, i) => (
               <div key={s} style={{ display:"flex", alignItems:"center", flex: i < 2 ? 1 : "none" }}>
@@ -156,6 +185,7 @@ export default function Login() {
               </div>
             ))}
           </div>
+          )}
 
           {error && (
             <div className="alert alert-danger" style={{ marginBottom: 16 }}>
@@ -175,7 +205,7 @@ export default function Login() {
                     type="email" required
                     className="form-control"
                     style={{ paddingLeft: 38 }}
-                    placeholder="e.g. sitb01-000012023@student.mmust.ac.ke"
+                    placeholder={loginMode === "admin" ? "admin@mmust.ac.ke" : "e.g. sitb01-000012023@student.mmust.ac.ke"}
                     value={email} onChange={e => setEmail(e.target.value)}
                   />
                 </div>
@@ -190,17 +220,19 @@ export default function Login() {
                     type={showPw ? "text" : "password"} required
                     className="form-control"
                     style={{ paddingLeft: 38, paddingRight: 40 }}
-                    placeholder="Your registration number in lowercase"
+                    placeholder={loginMode === "admin" ? "Admin password" : "Your registration number in lowercase"}
                     value={password} onChange={e => setPassword(e.target.value)}
                   />
                   <button type="button" onClick={() => setShowPw(v => !v)} style={styles.eyeBtn}>
                     <IconEye show={showPw} />
                   </button>
                 </div>
+                {loginMode === "voter" && (
                 <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>
                   Default password is your reg. number in lowercase — e.g.{" "}
                   <span style={{ fontFamily:"monospace" }}>sit/b/01-00001/2023</span>
                 </p>
+                )}
               </div>
 
               <button
@@ -212,11 +244,13 @@ export default function Login() {
                 {loading ? <><span className="spinner" /> Authenticating…</> : "Sign In"}
               </button>
 
+              {loginMode === "voter" && (
               <div style={{ textAlign: "center", marginTop: 20 }}>
                 <p style={{ fontSize: 13, color: "#6b7280" }}>
                   Not registered yet? <button type="button" onClick={() => navigate("/signup")} className="btn-ghost" style={{ padding: 0, border: "none", background: "none", color: "#1a56a4", textDecoration: "underline", cursor: "pointer" }}>Sign up here</button>
                 </p>
               </div>
+              )}
             </form>
           )}
 
@@ -332,6 +366,16 @@ const styles = {
     background: "none", border: "none", cursor: "pointer", color: "#9ca3af",
     display: "flex", padding: 0,
   },
+  modeToggle: {
+    display: "flex", background: "#f3f4f6", padding: 4,
+    borderRadius: 10, marginBottom: 20, gap: 4,
+  },
+  modeBtn: {
+    flex: 1, padding: "8px 12px", border: "none", background: "none",
+    fontSize: 13, fontWeight: 600, color: "#6b7280", cursor: "pointer",
+    borderRadius: 8, transition: "all .2s",
+  },
+  modeBtnActive: { background: "#fff", color: "#1a56a4", boxShadow: "0 1px 3px rgba(0,0,0,.1)" },
   otpInfoBox: {
     background: "#dbeafe", border: "1px solid #bfdbfe",
     borderRadius: 8, padding: "12px 14px", color: "#1e40af",

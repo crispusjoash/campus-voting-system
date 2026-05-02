@@ -162,7 +162,7 @@ router.post("/verify-otp", async (req, res) => {
         isActive: isActive
       },
       jwtSecret,
-      { expiresIn: "15m" }
+      { expiresIn: "2h" }
     );
 
     res.json({ message: "Login successful!", token });
