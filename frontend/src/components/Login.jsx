@@ -88,9 +88,9 @@ export default function Login() {
   };
 
   return (
-    <div style={styles.page}>
-      {/* Left panel */}
-      <div style={styles.leftPanel}>
+    <div style={styles.page} className="login-page">
+      {/* Left panel — hidden on mobile via CSS */}
+      <div style={styles.leftPanel} className="login-left-panel">
         <div style={styles.brandWrap}>
           <div style={styles.logo}>
             <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -129,8 +129,8 @@ export default function Login() {
       </div>
 
       {/* Right panel */}
-      <div style={styles.rightPanel}>
-        <div style={styles.formCard}>
+      <div style={styles.rightPanel} className="login-right-panel">
+        <div style={styles.formCard} className="login-form-card">
           {/* Mode toggle — Voter / Admin */}
           <div style={styles.modeToggle}>
             <button

@@ -86,18 +86,26 @@ router.post("/login", async (req, res) => {
 
     // Only attempt to send email if configured, otherwise just log it for dev
     if (process.env.MAIL_USER && process.env.MAIL_PASS) {
-      await transporter.sendMail({
-        from: `"MMUST Electoral Commission" <${process.env.MAIL_USER}>`,
-        to:   student.email_address,
-        subject: "MMUST Student Elections – Your One-Time Password",
-        html: `
-          <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto">
-            <h2 style="color:#1a56a4">MMUST Student Elections</h2>
-            <p>Your One-Time Password (OTP) is:</p>
-            <div style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#111;padding:16px 0">${otp}</div>
-            <p style="color:#6b7280;font-size:13px">This code expires in <strong>10 minutes</strong>. Do not share it with anyone.</p>
-          </div>`,
-      });
+      try {
+        await transporter.sendMail({
+          from: `"MMUST Electoral Commission" <${process.env.MAIL_USER}>`,
+          to:   student.email_address,
+          subject: "MMUST Student Elections – Your One-Time Password",
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto">
+              <h2 style="color:#1a56a4">MMUST Student Elections</h2>
+              <p>Your One-Time Password (OTP) is:</p>
+              <div style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#111;padding:16px 0">${otp}</div>
+              <p style="color:#6b7280;font-size:13px">This code expires in <strong>10 minutes</strong>. Do not share it with anyone.</p>
+            </div>`,
+        });
+      } catch (mailError) {
+        console.error("SMTP Email Error:", mailError);
+        return res.status(500).json({ 
+          message: "Database connection successful, but failed to send OTP email. Please check your email configuration on Render.", 
+          error: mailError.message 
+        });
+      }
     } else {
       console.log(`[DEV MODE] OTP for ${student.email_address}: ${otp}`);
     }

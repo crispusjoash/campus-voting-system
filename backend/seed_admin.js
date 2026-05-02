@@ -4,8 +4,8 @@ const pool = require('./db');
 
 async function seedAdmin() {
   try {
-    const email = "admin@student.mmust.ac.ke";
-    const password = "admin"; // Default password
+    const email = "admin@mmust.ac.ke";
+    const password = "admin123"; // Default password
 
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(password, salt);
