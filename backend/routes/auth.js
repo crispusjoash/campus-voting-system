@@ -1,21 +1,10 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const nodemailer = require("nodemailer");
 const pool = require("../db");
 
 const router = express.Router();
 const jwtSecret = process.env.JWT_SECRET || "campusVotingSecretKey2026";
-
-// Setup Nodemailer transporter
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASS,
-  },
-});
-
 // Helper to generate a 6-digit OTP
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -85,24 +74,40 @@ router.post("/login", async (req, res) => {
     );
 
     // Only attempt to send email if configured, otherwise just log it for dev
-    if (process.env.MAIL_USER && process.env.MAIL_PASS) {
+    const brevoApiKey = process.env.BREVO_API_KEY || process.env.MAIL_PASS;
+    const senderEmail = process.env.MAIL_USER || "noreply@mmust.ac.ke";
+    
+    if (brevoApiKey) {
       try {
-        await transporter.sendMail({
-          from: `"MMUST Electoral Commission" <${process.env.MAIL_USER}>`,
-          to:   student.email_address,
-          subject: "MMUST Student Elections – Your One-Time Password",
-          html: `
-            <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto">
-              <h2 style="color:#1a56a4">MMUST Student Elections</h2>
-              <p>Your One-Time Password (OTP) is:</p>
-              <div style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#111;padding:16px 0">${otp}</div>
-              <p style="color:#6b7280;font-size:13px">This code expires in <strong>10 minutes</strong>. Do not share it with anyone.</p>
-            </div>`,
+        const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+          method: "POST",
+          headers: {
+            "accept": "application/json",
+            "api-key": brevoApiKey,
+            "content-type": "application/json"
+          },
+          body: JSON.stringify({
+            sender: { name: "MMUST Electoral Commission", email: senderEmail },
+            to: [{ email: student.email_address }],
+            subject: "MMUST Student Elections – Your One-Time Password",
+            htmlContent: `
+              <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto">
+                <h2 style="color:#1a56a4">MMUST Student Elections</h2>
+                <p>Your One-Time Password (OTP) is:</p>
+                <div style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#111;padding:16px 0">${otp}</div>
+                <p style="color:#6b7280;font-size:13px">This code expires in <strong>10 minutes</strong>. Do not share it with anyone.</p>
+              </div>`
+          })
         });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Failed to send email via Brevo API");
+        }
       } catch (mailError) {
-        console.error("SMTP Email Error:", mailError);
+        console.error("Brevo Email Error:", mailError);
         return res.status(500).json({ 
-          message: "Database connection successful, but failed to send OTP email. Please check your email configuration on Render.", 
+          message: "Database connection successful, but failed to send OTP email. Please check your Brevo API configuration.", 
           error: mailError.message 
         });
       }
